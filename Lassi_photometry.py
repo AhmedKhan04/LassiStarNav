@@ -17,14 +17,12 @@ def load_jpg(path):
     img = Image.open(path).convert("L")  # grayscale
     return np.array(img).astype(float)
 
-"""
 
-sci_data = load_jpg(r"images\WASP-12b_example_uncalibrated_images\uncalibrated\WASP-12b_00040.fits").astype(float)
-bias_data = load_jpg(r"images\WASP-12b_example_raw_biases\bias_00100.fits").astype(float)
-dark_data = load_jpg(r"images\WASP-12b_example_raw_darks\dark_00150.fits").astype(float)
-flat_data = load_jpg(r"images\WASP-12b_example_raw_flats\flat_r_00002.fits").astype(float)
+#sci_data = load_jpg(r"images\WASP-12b_example_uncalibrated_images\uncalibrated\WASP-12b_00040.fits").astype(float)
+#bias_data = load_jpg(r"images\WASP-12b_example_raw_biases\bias_00100.fits").astype(float)
+#dark_data = load_jpg(r"images\WASP-12b_example_raw_darks\dark_00150.fits").astype(float)
+#flat_data = load_jpg(r"images\WASP-12b_example_raw_flats\flat_r_00002.fits").astype(float)
 
-"""
 
 
 sci_data = fits.getdata(r"images\WASP-12b_example_uncalibrated_images\uncalibrated\WASP-12b_00040.fits").astype(float)
@@ -58,7 +56,3 @@ plt.title("Uncalibrated Image with Detected Stars")
 plt.xlabel("X (pixels)")
 plt.ylabel("Y (pixels)")
 plt.show()
-
-
-
-
