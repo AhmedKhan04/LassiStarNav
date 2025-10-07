@@ -12,6 +12,18 @@ from astropy.table import Table
 from photutils.detection import DAOStarFinder, IRAFStarFinder
 import astroalign as aa
 import os 
+#import cv2
+
+
+def get_max(img): 
+    maxVal = np.amax(img)
+    print('--------------')
+    print(maxVal)
+    maxLoc = np.unravel_index(np.argmax(img), img.shape)
+    maxLoc = [(maxLoc[1], maxLoc[0])]
+    print(maxLoc)
+    print('--------------')
+    return maxLoc
 
 # i am going to calibrate my picture here since we do not have a proper class structure yet....
 
@@ -125,14 +137,14 @@ for filename in os.listdir(folder_path):
     #plt.show()
     past_cord = cords_transformed
     
-    cords_transformed = np.argmax(masked_data) # DAOStarFinder(fwhm=FWHM, threshold=10*std)(masked_data - median_s)
+    #cords_transformed = get_max(masked_data) # DAOStarFinder(fwhm=FWHM, threshold=10*std)(masked_data - median_s)
     if(cords_transformed is None):
         print("No stars found, using previous coordinates") 
         cords_transformed = past_cord
     else:
-        cords_transformed = list(zip(cords_transformed["xcentroid"], cords_transformed["ycentroid"]))
+        cords_transformed = get_max(masked_data)
     print(f"refinied cords {cords_transformed}")
-
+    
     #cords_transformed = DAOStarFinder(fwhm=FWHM, threshold=5.*std, xycoords=cords)
     #cords_transformed = np.array([(3499.825554241658, 39.37473823979557)]) 
     aper_t = CircularAperture(cords_transformed[0], r=ap_radius)
