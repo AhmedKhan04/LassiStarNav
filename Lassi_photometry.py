@@ -26,9 +26,14 @@ def load_jpg(path):
 
 
 sci_data = fits.getdata(r"images\WASP-12b_example_uncalibrated_images\uncalibrated\WASP-12b_00040.fits").astype(float)
+
+
 bias_data = fits.getdata(r"images\WASP-12b_example_raw_biases\bias_00100.fits").astype(float)
 dark_data = fits.getdata(r"images\WASP-12b_example_raw_darks\dark_00150.fits").astype(float)
 flat_data = fits.getdata(r"images\WASP-12b_example_raw_flats\flat_r_00002.fits").astype(float)
+
+
+
 
 dark_corrected = sci_data - bias_data - dark_data
 flat_norm = flat_data / np.median(flat_data)
