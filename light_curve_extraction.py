@@ -14,6 +14,9 @@ import astroalign as aa
 import os 
 #import cv2
 
+def load_calibrated(file_path, bias, dark, flat_norm):
+    data = fits.getdata(file_path).astype(float)
+    return (data - bias - dark) / flat_norm
 
 
 def get_max(img): 
@@ -49,8 +52,10 @@ for filename in os.listdir(folder_path):
     print(file_path)
     # pulling in second image...eventually loop this. 
     sci_data_second = fits.getdata(fr"{file_path}").astype(float)
-    dark_corrected_second = sci_data_second - bias_data - dark_data
-    calibrated_second = dark_corrected_second / flat_norm
+    #dark_corrected_second = sci_data_second - bias_data - dark_data
+    
+    calibrated_second = load_calibrated(file_path, bias_data, dark_data, flat_norm)
+
 
     #from scipy.ndimage import rotate, zoom
     #calibrated_second = rotate(calibrated_second, angle=30.0, reshape=False)
