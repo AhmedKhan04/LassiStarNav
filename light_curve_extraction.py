@@ -43,6 +43,10 @@ calibrated = dark_corrected / flat_norm
 folder_path = r"images\WASP-12b_example_uncalibrated_images\uncalibrated"
 initial = True 
 
+saving_constant = 0
+photom_list = []
+light_curve_extraction = False
+
 for filename in os.listdir(folder_path):
     #print(filename)
     file_path = os.path.join(folder_path, filename)
@@ -95,6 +99,8 @@ for filename in os.listdir(folder_path):
 
     #---------------------------
 
+    
+
     FWHM = 3.0
 
 
@@ -106,6 +112,7 @@ for filename in os.listdir(folder_path):
     #cords  = list(zip(sources["xcentroid"], sources["ycentroid"]))
 
     cords = np.array([(3499.825554241658, 39.37473823979557)])  # coordinates from image A
+    #cords = np.array([(2401.93, 2086.15)])  # coordinates from image A
     transform, (src_list, ref_list) = aa.find_transform(calibrated_second, calibrated)
 
     #print(transform)  # see what transform was found
@@ -267,4 +274,35 @@ for filename in os.listdir(folder_path):
     plt.ylabel("Y (pixels)")
     plt.savefig(fr"images\aperture_masks\{filename}.png")
     plt.close()
- 
+
+
+    # --------------------------
+    #Extract the light curve here...
+    
+    apertures = [aper_t, ann_t]
+    photom_table = aperture_photometry(calibrated, apertures) # photom_table will contain aperture_sum and annulus_sum for each entry
+    print(photom_table)
+
+    area =  np.pi * (ann_inner + ann_width)**2 - np.pi * (ann_inner)**2
+
+
+    bkg_mean = photom_table['aperture_sum_1'] / area
+    bkg_sum = bkg_mean * area
+    final_sum = photom_table['aperture_sum_0'] - bkg_sum
+    print(final_sum)
+
+    saving_constant += 1
+    photom_list.append(final_sum)
+
+
+    if (saving_constant % 10 == 0 and saving_constant != 0 and light_curve_extraction == True):
+        plt.figure()
+        plt.plot(photom_list)
+        plt.xlabel("Image number")
+        plt.ylabel("Flux (arbitrary units)")
+        plt.title("Light Curve of Target Star")
+        #plt.savefig(r"images\light_curve.png")
+        plt.show()
+
+
+  
