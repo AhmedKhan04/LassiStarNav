@@ -12,6 +12,11 @@ from astropy.table import Table
 from photutils.detection import DAOStarFinder, IRAFStarFinder
 import astroalign as aa
 import os 
+from photutils.profiles import curve_of_growth
+from photutils.centroids import centroid_com
+from photutils.background import Background2D, MedianBackground
+
+
 #import cv2
 
 def load_calibrated(file_path, bias, dark, flat_norm):
@@ -152,6 +157,79 @@ for filename in os.listdir(folder_path):
     past_cord = cords_transformed
     
     #cords_transformed = get_max(masked_data) # DAOStarFinder(fwhm=FWHM, threshold=10*std)(masked_data - median_s)
+    
+    if(cords_transformed is None):
+        print("No stars found, using previous coordinates") 
+        cords_transformed = past_cord
+    else:
+
+        # Estimate and subtract background
+        bkg_estimator = MedianBackground()
+        bkg = Background2D(masked_data, box_size=50, filter_size=3, bkg_estimator=bkg_estimator)
+        background_subtracted = masked_data - bkg.background
+
+        # Clip region
+        sub_region = background_subtracted[y1:y2, x1:x2]
+
+        plt.imshow(sub_region, cmap='gray', origin='lower',
+                vmin=np.median(sub_region) - 2*np.std(sub_region),
+                vmax=np.median(sub_region) + 5*np.std(sub_region))
+        plt.title('Background Subtracted Region')
+        plt.show()
+
+        # Centroiding
+        try:
+            plt.hist(sub_region.flatten(), bins=50)
+            plt.show()
+            x4, y4 = centroid_com(sub_region)
+            cords_transformed = np.array([(y4, x4)])
+            print(f"Centroided coords: {cords_transformed}")
+            plt.figure()
+            
+            plt.imshow(sub_region, cmap='gray', origin='lower',
+                vmin=np.median(sub_region) - 2*np.std(sub_region),
+                vmax=np.median(sub_region) + 5*np.std(sub_region))
+            plt.title('Background Subtracted Region')
+            plt.plot(x4, y4, 'mx', label='2D Gaussian')
+            plt.legend()
+            plt.show()
+
+        except Exception as e:
+            print("Centroid failed:", e)
+            cords_transformed = past_cord
+
+        # Plot final centroid
+        plt.imshow(background_subtracted, cmap='gray', origin='lower',
+                vmin=np.median(background_subtracted) - 2*np.std(background_subtracted),
+                vmax=np.median(background_subtracted) + 5*np.std(background_subtracted))
+        plt.plot(cords_transformed[0, 1], cords_transformed[0, 0], 'mx', label='2D Gaussian Centroid')
+        plt.legend()
+        plt.show()
+
+    """    print('going for centroiding')
+        #bkg_estimator = MedianBackground()
+        #bkg = Background2D(masked_data, box_size=50, filter_size=3, bkg_estimator=bkg_estimator)
+        background_subtracted = masked_data 
+        plt.imshow(background_subtracted[y1:y2, x1:x2], cmap='gray', origin='lower', 
+            vmin=median_s - 2*std_s, vmax=median_s + 5*std_s)
+        plt.show()
+        x4, y4 = centroid_2dg(background_subtracted[y1:y2, x1:x2])
+        
+        cords_transformed = np.array([(y4+y1, x4+x1)])
+        print(f"Centroided coords: {cords_transformed}")
+        plt.imshow(background_subtracted, cmap='gray', origin='lower', 
+            vmin=median_s - 2*std_s, vmax=median_s + 5*std_s)
+        plt.plot(x4, y4, 'mx', label='2D Gaussian Centroid')
+        plt.legend()
+        plt.show()"""
+
+        #print(degrees)
+        #print(direction_matrix) 
+    
+    
+
+
+    """
     if(cords_transformed is None):
         print("No stars found, using previous coordinates") 
         cords_transformed = past_cord
@@ -210,7 +288,7 @@ for filename in os.listdir(folder_path):
         
         #print(degrees)
         #print(direction_matrix) 
-
+    """
     
     #print(f"refinied cords {cords_transformed}")
     #plt.scatter((cords_transformed)[0][0], (cords_transformed)[0][1]) # add in our initial centroid. 
