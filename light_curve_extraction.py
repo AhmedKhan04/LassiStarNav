@@ -12,8 +12,18 @@ from astropy.table import Table
 from photutils.detection import DAOStarFinder, IRAFStarFinder
 import astroalign as aa
 import os 
+from photutils.profiles import  CurveOfGrowth, RadialProfile
+from photutils.centroids import centroid_2dg
+from photutils.background import Background2D, MedianBackground
+
+
+
+
 #import cv2
 
+def load_calibrated(file_path, bias, dark, flat_norm):
+    data = fits.getdata(file_path).astype(float)
+    return (data - bias - dark) / flat_norm
 
 
 def get_max(img): 
@@ -29,6 +39,8 @@ def get_max(img):
 # i am going to calibrate my picture here since we do not have a proper class structure yet....
 
 sci_data = fits.getdata(r"images\WASP-12b_example_uncalibrated_images\uncalibrated\WASP-12b_00040.fits").astype(float)
+
+
 bias_data = fits.getdata(r"images\WASP-12b_example_raw_biases\bias_00100.fits").astype(float)
 dark_data = fits.getdata(r"images\WASP-12b_example_raw_darks\dark_00150.fits").astype(float)
 flat_data = fits.getdata(r"images\WASP-12b_example_raw_flats\flat_r_00002.fits").astype(float)
@@ -40,6 +52,10 @@ calibrated = dark_corrected / flat_norm
 folder_path = r"images\WASP-12b_example_uncalibrated_images\uncalibrated"
 initial = True 
 
+saving_constant = 0
+photom_list = []
+light_curve_extraction = False
+
 for filename in os.listdir(folder_path):
     #print(filename)
     file_path = os.path.join(folder_path, filename)
@@ -48,9 +64,17 @@ for filename in os.listdir(folder_path):
         continue 
     print(file_path)
     # pulling in second image...eventually loop this. 
-    sci_data_second = fits.getdata(fr"{file_path}").astype(float)
-    dark_corrected_second = sci_data_second - bias_data - dark_data
-    calibrated_second = dark_corrected_second / flat_norm
+    #sci_data_second = fits.getdata(fr"{file_path}").astype(float)
+    #dark_corrected_second = sci_data_second - bias_data - dark_data
+    
+    ############
+    # OVERRIDE FOR TESTING
+
+    calibrated_second = fits.getdata(r"C:\Users\ahmed\Downloads\HIP 91726 (delta Sct)_00015.fits").astype(float)
+
+    ##############
+    #calibrated_second = load_calibrated(file_path, bias_data, dark_data, flat_norm)
+
 
     #from scipy.ndimage import rotate, zoom
     #calibrated_second = rotate(calibrated_second, angle=30.0, reshape=False)
@@ -90,6 +114,8 @@ for filename in os.listdir(folder_path):
 
     #---------------------------
 
+    
+
     FWHM = 3.0
 
 
@@ -100,12 +126,15 @@ for filename in os.listdir(folder_path):
 
     #cords  = list(zip(sources["xcentroid"], sources["ycentroid"]))
 
-    cords = np.array([(3499.825554241658, 39.37473823979557)])  # coordinates from image A
-    transform, (src_list, ref_list) = aa.find_transform(calibrated_second, calibrated)
+    #cords = np.array([(3499.825554241658, 39.37473823979557)])  # coordinates from image A
+    cords = np.array([(500, 950)])  # coordinates from image A
+    
+    #cords = np.array([(2401.93, 2086.15)])  # coordinates from image A
+    #transform, (src_list, ref_list) = aa.find_transform(calibrated_second, calibrated)
 
     #print(transform)  # see what transform was found
 
-    cords_transformed = transform(cords)
+    cords_transformed = cords #transform(cords)
 
     #print("Original coords:", cords)
     #print("Transformed coords:", cords_transformed)
@@ -132,7 +161,7 @@ for filename in os.listdir(folder_path):
     mask = np.zeros_like(calibrated_second)
     mask[y1:y2, x1:x2] = 1
 
-    masked_data = calibrated_second *  mask
+    #masked_data = calibrated_second *  mask
 
     #plt.imshow(masked_data, cmap='gray', origin='lower',
             #vmin=median_s - 2*std_s, vmax=median_s + 5*std_s)
@@ -140,6 +169,114 @@ for filename in os.listdir(folder_path):
     past_cord = cords_transformed
     
     #cords_transformed = get_max(masked_data) # DAOStarFinder(fwhm=FWHM, threshold=10*std)(masked_data - median_s)
+    
+    if(cords_transformed is None):
+        print("No stars found, using previous coordinates") 
+        cords_transformed = past_cord
+    else:
+        
+        
+        
+    
+        background = np.min(calibrated_second)
+        
+        data_background_subtracted = calibrated_second - background
+        plt.imshow(calibrated_second, cmap='Blues', origin='lower', vmin=median_s - 2*std_s, vmax=median_s + 5*std_s)
+        data_background_subtracted = -np.min(data_background_subtracted) + data_background_subtracted
+        data_background_subtracted = data_background_subtracted[x1:x2, y1:y2]
+        x4, y4 = centroid_2dg(data_background_subtracted)
+
+        plt.imshow(data_background_subtracted, cmap='Grays', origin='lower')    
+        plt.show()
+        #print(f"Initial coords: {(x4, y4)}")
+        #print(f"Box limits: x({x1}, {x2}) y({y1}, {y2})")
+        cords_transformed = np.array([(x4 + y1, y4 + x1)])
+        #print(f"Centroided coords: {cords_transformed}")
+        #plt.figure()
+        
+        #plt.imshow(data_background_subtracted, cmap='Blues', origin='lower')
+        #plt.plot(x4, y4, 'mx', label='2D Gaussian')
+        
+        #plt.legend()
+        #plt.show()
+        radii = np.arange(1,15)
+        cog = CurveOfGrowth(data_background_subtracted, (x4,y4), radii, mask=None)
+        #cog = RadialProfile(data_background_subtracted, (x4,y4), radii, mask=None)
+        growth_rate = np.diff(cog.profile)
+        growth_rate = np.diff(growth_rate) # second derivative
+        optimal_radius = radii[np.where(growth_rate < 0)[0][0] + 1]
+        print("Optimal aperture radius:", optimal_radius)
+  
+        #threshold = 0.1* np.max(growth_rate)  # e.g., 1% of max growth
+        #optimal_index = np.where(growth_rate < threshold)[0][0]
+        #optimal_radius = radii[(optimal_index)]
+        #print("Optimal aperture radius:", optimal_radius)
+        
+        plt.figure()
+        plt.imshow(data_background_subtracted, cmap='Grays', origin='lower')    
+        plt.colorbar(label="Flux (ADU)")
+        plt.xlabel("X [pixels]")
+        plt.ylabel("Y [pixels]")
+
+        # overlay aperture circles
+        for r in radii:
+            aperture = CircularAperture((x4, y4), r=r)
+            aperture.plot(lw=1, alpha=0.5)
+
+        # optionally, mark the star center
+        plt.scatter(x4, y4, color='red', s=10)
+
+        plt.show()
+
+
+
+        plt.figure()
+        plt.plot(radii, cog.profile, 'bo-')
+        plt.axvline(optimal_radius, color='r', linestyle='--', label='Optimal Radius')
+        plt.legend()
+        plt.xlabel('Aperture Radius (pixels)')
+        plt.ylabel('Cumulative Flux')
+        plt.title('Curve of Growth')
+        plt.grid()
+        plt.show()
+
+        #first_deriv  = np.gradient(growth_rate, radii)
+        #second_deriv = np.gradient(first_deriv, radii)
+
+        # Find first radius where concavity becomes negative
+        #neg_idx = np.where(second_deriv < 0)[0]
+        #if len(neg_idx) > 0:
+        #    r_turn = radii[neg_idx[0]]
+        #else:
+        #    r_turn = radii[-1]
+        #print(f"Radius where curve starts flattening (2nd derivative < 0): {r_turn:.2f} px")
+
+        
+
+    """    print('going for centroiding')
+        #bkg_estimator = MedianBackground()
+        #bkg = Background2D(masked_data, box_size=50, filter_size=3, bkg_estimator=bkg_estimator)
+        background_subtracted = masked_data 
+        plt.imshow(background_subtracted[y1:y2, x1:x2], cmap='gray', origin='lower', 
+            vmin=median_s - 2*std_s, vmax=median_s + 5*std_s)
+        plt.show()
+        x4, y4 = centroid_2dg(background_subtracted[y1:y2, x1:x2])
+        
+        cords_transformed = np.array([(y4+y1, x4+x1)])
+        print(f"Centroided coords: {cords_transformed}")
+        plt.imshow(background_subtracted, cmap='gray', origin='lower', 
+            vmin=median_s - 2*std_s, vmax=median_s + 5*std_s)
+        plt.plot(x4, y4, 'mx', label='2D Gaussian Centroid')
+        plt.legend()
+        plt.show()"""
+
+        #print(degrees)
+        #print(direction_matrix) 
+    
+    
+
+
+    """
     if(cords_transformed is None):
         print("No stars found, using previous coordinates") 
         cords_transformed = past_cord
@@ -198,7 +335,7 @@ for filename in os.listdir(folder_path):
         
         #print(degrees)
         #print(direction_matrix) 
-
+    """
     
     #print(f"refinied cords {cords_transformed}")
     #plt.scatter((cords_transformed)[0][0], (cords_transformed)[0][1]) # add in our initial centroid. 
@@ -207,6 +344,9 @@ for filename in os.listdir(folder_path):
     #plt.close()
     #cords_transformed = DAOStarFinder(fwhm=FWHM, threshold=5.*std, xycoords=cords)
     #cords_transformed = np.array([(3499.825554241658, 39.37473823979557)]) 
+    ap_radius = optimal_radius
+    ann_inner = optimal_radius + 5
+    ann_width = 5
 
     aper_t = CircularAperture(cords_transformed[0], r=ap_radius)
     ann_t = CircularAnnulus(cords_transformed[0], r_in=ann_inner, r_out=ann_inner+ann_width)
@@ -262,4 +402,37 @@ for filename in os.listdir(folder_path):
     plt.ylabel("Y (pixels)")
     plt.savefig(fr"images\aperture_masks\{filename}.png")
     plt.close()
- 
+
+
+    # --------------------------
+    #Extract the light curve here...
+    
+    apertures = [aper_t, ann_t]
+    photom_table = aperture_photometry(calibrated, apertures) # photom_table will contain aperture_sum and annulus_sum for each entry
+    print(photom_table)
+
+    area =  np.pi * (ann_inner + ann_width)**2 - np.pi * (ann_inner)**2
+
+
+    bkg_mean = photom_table['aperture_sum_1'] / area
+    bkg_sum = bkg_mean * area
+    final_sum = photom_table['aperture_sum_0'] - bkg_sum
+    print(final_sum)
+
+    saving_constant += 1
+    photom_list.append(final_sum)
+
+
+    if (saving_constant % 10 == 0 and saving_constant != 0 and light_curve_extraction == True):
+        plt.figure()
+        plt.plot(photom_list)
+        plt.xlabel("Image number")
+        plt.ylabel("Flux (arbitrary units)")
+        plt.title("Light Curve of Target Star")
+        #plt.savefig(r"images\light_curve.png")
+        plt.show()
+
+
+
+
+  
