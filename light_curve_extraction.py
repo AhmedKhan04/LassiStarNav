@@ -21,6 +21,8 @@ from photutils.background import Background2D, MedianBackground
 
 #import cv2
 
+plotting_enabled = False   
+
 def load_calibrated(file_path, bias, dark, flat_norm):
     data = fits.getdata(file_path).astype(float)
     return (data - bias - dark) / flat_norm
@@ -185,9 +187,9 @@ for filename in os.listdir(folder_path):
         data_background_subtracted = -np.min(data_background_subtracted) + data_background_subtracted
         data_background_subtracted = data_background_subtracted[x1:x2, y1:y2]
         x4, y4 = centroid_2dg(data_background_subtracted)
-
-        plt.imshow(data_background_subtracted, cmap='Grays', origin='lower')    
-        plt.show()
+        if plotting_enabled:
+            plt.imshow(data_background_subtracted, cmap='Grays', origin='lower')    
+            plt.show()
         #print(f"Initial coords: {(x4, y4)}")
         #print(f"Box limits: x({x1}, {x2}) y({y1}, {y2})")
         cords_transformed = np.array([(x4 + y1, y4 + x1)])
@@ -212,11 +214,12 @@ for filename in os.listdir(folder_path):
         #optimal_radius = radii[(optimal_index)]
         #print("Optimal aperture radius:", optimal_radius)
         
-        plt.figure()
-        plt.imshow(data_background_subtracted, cmap='Grays', origin='lower')    
-        plt.colorbar(label="Flux (ADU)")
-        plt.xlabel("X [pixels]")
-        plt.ylabel("Y [pixels]")
+        if plotting_enabled:
+            plt.figure()
+            plt.imshow(data_background_subtracted, cmap='Grays', origin='lower')    
+            plt.colorbar(label="Flux (ADU)")
+            plt.xlabel("X [pixels]")
+            plt.ylabel("Y [pixels]")
 
         # overlay aperture circles
         for r in radii:
@@ -224,21 +227,22 @@ for filename in os.listdir(folder_path):
             aperture.plot(lw=1, alpha=0.5)
 
         # optionally, mark the star center
-        plt.scatter(x4, y4, color='red', s=10)
+        if plotting_enabled:
+            plt.scatter(x4, y4, color='red', s=10)
 
-        plt.show()
+            plt.show()
 
 
 
-        plt.figure()
-        plt.plot(radii, cog.profile, 'bo-')
-        plt.axvline(optimal_radius, color='r', linestyle='--', label='Optimal Radius')
-        plt.legend()
-        plt.xlabel('Aperture Radius (pixels)')
-        plt.ylabel('Cumulative Flux')
-        plt.title('Curve of Growth')
-        plt.grid()
-        plt.show()
+            plt.figure()
+            plt.plot(radii, cog.profile, 'bo-')
+            plt.axvline(optimal_radius, color='r', linestyle='--', label='Optimal Radius')
+            plt.legend()
+            plt.xlabel('Aperture Radius (pixels)')
+            plt.ylabel('Cumulative Flux')
+            plt.title('Curve of Growth')
+            plt.grid()
+            plt.show()
 
         #first_deriv  = np.gradient(growth_rate, radii)
         #second_deriv = np.gradient(first_deriv, radii)
@@ -371,7 +375,7 @@ for filename in os.listdir(folder_path):
 
     fig, ax = plt.subplots(figsize = (7,7))
     plt.imshow(calibrated_second, cmap='grey', origin='lower', vmin=median_s-2*std_s, vmax=median_s+5*std_s)
-    aper_t.plot(color='red')
+    aper_t.plot(color='blue')
     ann_t.plot(color='cyan')
     #print(aper_t)
 
