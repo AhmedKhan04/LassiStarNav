@@ -56,6 +56,7 @@ saving_constant = 0
 photom_list = []
 light_curve_extraction = False
 
+
 for filename in os.listdir(folder_path):
     #print(filename)
     file_path = os.path.join(folder_path, filename)
