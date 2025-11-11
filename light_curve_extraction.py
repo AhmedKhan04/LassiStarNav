@@ -1,8 +1,10 @@
+
 import numpy as np 
 import scipy as sp 
 import matplotlib.pyplot as plt
 from photutils import aperture
 import astropy as ap 
+from astropy.time import Time
 from PIL import Image
 import glob
 from astropy.io import fits
@@ -15,6 +17,10 @@ import os
 from photutils.profiles import  CurveOfGrowth, RadialProfile
 from photutils.centroids import centroid_2dg
 from photutils.background import Background2D, MedianBackground
+import pandas as pd 
+from datetime import datetime
+
+
 
 
 
@@ -30,39 +36,60 @@ def get_max(img):
     maxVal = np.amax(img)
     #print('--------------')
     #print(maxVal)
-    maxLoc = np.unravel_index(np.argmax(img), img.shape)
-    maxLoc = [(maxLoc[1], maxLoc[0])]
+    print(img.shape)
+    min = np.min(img)
+    mask = np.ones_like(img) 
+    print(mask.shape)
+    mid_point_array = np.array([(mask.shape[0]//2, mask.shape[1]//2)])
+    print(mid_point_array)
+    
+    return mid_point_array
+    
+    #print()
+    #mask[0:250, 0:250] = min # removing time_stamp from image 
+    #print(np.argmax(img))
+
+    #maxLoc = np.unravel_index(np.argmax(img), img.shape)
+    #maxLoc = [(maxLoc[1], maxLoc[0])]
     #print(maxLoc)
     #print('--------------')
-    return maxLoc
+    #return maxLoc
+
+def get_midpoint(img):
+    ny, nx = img.shape
+    x = nx // 2
+    y = ny // 2
+    return (x, y)   
 
 # i am going to calibrate my picture here since we do not have a proper class structure yet....
 
-sci_data = fits.getdata(r"images\WASP-12b_example_uncalibrated_images\uncalibrated\WASP-12b_00040.fits").astype(float)
+#sci_data = fits.getdata(r"images\WASP-12b_example_uncalibrated_images\uncalibrated\WASP-12b_00040.fits").astype(float)
 
 
-bias_data = fits.getdata(r"images\WASP-12b_example_raw_biases\bias_00100.fits").astype(float)
-dark_data = fits.getdata(r"images\WASP-12b_example_raw_darks\dark_00150.fits").astype(float)
-flat_data = fits.getdata(r"images\WASP-12b_example_raw_flats\flat_r_00002.fits").astype(float)
+#bias_data = fits.getdata(r"images\WASP-12b_example_raw_biases\bias_00100.fits").astype(float)
 
-dark_corrected = sci_data - bias_data - dark_data
-flat_norm = flat_data / np.median(flat_data)
-calibrated = dark_corrected / flat_norm
 
-folder_path = r"images\WASP-12b_example_uncalibrated_images\uncalibrated"
+dark_data = fits.getdata(r"C:\Users\ahmed\Downloads\NGC0891 darks_00015.fits").astype(float)
+#flat_data = fits.getdata(r"images\WASP-12b_example_raw_flats\flat_r_00002.fits").astype(float)
+
+#dark_corrected = sci_data - bias_data - dark_data
+#flat_norm = flat_data / np.median(flat_data)
+#calibrated = dark_corrected / flat_norm
+
+#folder_path = r"images\WASP-12b_example_uncalibrated_images\uncalibrated"
 initial = True 
 
 saving_constant = 0
 photom_list = []
 light_curve_extraction = False
+plotting = False
+date_array = []
 
-
-for filename in os.listdir(folder_path):
+for filename in pd.read_csv("real_data_map_Tau Cygni.csv")["FITS File Path"]:
     #print(filename)
-    file_path = os.path.join(folder_path, filename)
-    if(initial):
-        initial = False
-        continue 
+    file_path = filename #os.path.join(folder_path, filename)
+    
+  
     print(file_path)
     # pulling in second image...eventually loop this. 
     #sci_data_second = fits.getdata(fr"{file_path}").astype(float)
@@ -71,8 +98,47 @@ for filename in os.listdir(folder_path):
     ############
     # OVERRIDE FOR TESTING
 
-    calibrated_second = fits.getdata(r"C:\Users\ahmed\Downloads\HIP 91726 (delta Sct)_00015.fits").astype(float)
+    hdul = fits.open(file_path)
+    print("\n=== FITS Header ===")
+    print(repr(hdul[0].header)) 
+    #sci_data_second = hdul[0].data.astype(float)
 
+    date_obs = hdul[0].header.get('DATE-AVG')
+    date_obs.split('/')[0].strip()
+    
+    date_obs_clean = date_obs.split("'/")[0].strip()  
+    print(date_obs)
+    if '.' in date_obs_clean:
+        date_part, frac = date_obs_clean.split('.')
+        frac = frac[:6]  # keep only first 6 digits
+        date_obs_clean = f"{date_part}.{frac}"
+
+    # (example: ''2025-11-03T00:41:16.2910676' / System Clock:Est. Frame Mid Point')
+    #dt = datetime.fromisoformat(date_obs)
+    #print(dt)
+    # Convert to fractional hours since start of day (UTC)
+    #utc_float =  dt.hour + dt.minute / 60 + dt.second / 3600 + dt.microsecond / (3600 * 1e6)
+    #rint(f"UTC time (fractional hours): {utc_float}")  
+
+    
+    print(date_obs_clean)
+    print('--------------')
+    t_utc = Time(date_obs_clean, format='isot', scale='utc')
+    print(t_utc)
+    # Define Kepler mission epoch (BJD 2454833.0)
+    kepler_epoch = Time(2454833.0, format='jd', scale='utc')
+
+    # Compute days since epoch
+    days_since = (t_utc - kepler_epoch).to('day').value
+    print(f"Days since Kepler epoch: {days_since:.6f} days")
+    date_array.append(days_since)
+
+    calibrated_second = hdul[0].data.astype(float) - dark_data  
+    
+    #calibrated_second[:250, :250] = 0
+
+
+    hdul.close()
     ##############
     #calibrated_second = load_calibrated(file_path, bias_data, dark_data, flat_norm)
 
@@ -81,7 +147,7 @@ for filename in os.listdir(folder_path):
     #calibrated_second = rotate(calibrated_second, angle=30.0, reshape=False)
     #calibrated_second = zoom(calibrated_second, 1.5, order=2)
 
-    mean, median, std = sigma_clipped_stats(calibrated, sigma=3.0)
+    #mean, median, std = sigma_clipped_stats(calibrated, sigma=3.0)
 
     mean_s, median_s, std_s = sigma_clipped_stats(calibrated_second, sigma=3.0)
 
@@ -128,8 +194,16 @@ for filename in os.listdir(folder_path):
     #cords  = list(zip(sources["xcentroid"], sources["ycentroid"]))
 
     #cords = np.array([(3499.825554241658, 39.37473823979557)])  # coordinates from image A
-    cords = np.array([(500, 950)])  # coordinates from image A
+    #cords = np.array([(500, 950)])  # coordinates from image A
+    #cords = np.array([(980, 560)])  # coordinates from image A
     
+    
+    #cords = np.array([(560, 980)])
+    cords = get_max(calibrated_second)
+    #cords = np.array([(560, 980)])
+    
+    print(f"initial centering point: {cords}")
+    #cords = get_max(calibrated_second) # coordinates from image A
     #cords = np.array([(2401.93, 2086.15)])  # coordinates from image A
     #transform, (src_list, ref_list) = aa.find_transform(calibrated_second, calibrated)
 
@@ -142,9 +216,9 @@ for filename in os.listdir(folder_path):
 
 
     # override for now for inspection
-    ap_radius  = 1.5 * FWHM
-    ann_inner = 3 * FWHM
-    ann_width = 2 * FWHM 
+    #ap_radius  = 1.5 * FWHM
+    ##ann_inner = 3 * FWHM
+    #ann_width = 2 * FWHM 
 
     #aper = CircularAperture(cords, r=ap_radius)
     #ann = CircularAnnulus(cords, r_in=ann_inner, r_out=ann_inner+ann_width)
@@ -153,6 +227,7 @@ for filename in os.listdir(folder_path):
     t_p = cords_transformed
     x, y = t_p[0]
     x, y = int(x), int(y)
+    print(f"cords: {x, y}")
     half_box = 50
     #print(x)
     #print(y)
@@ -182,13 +257,22 @@ for filename in os.listdir(folder_path):
         background = np.min(calibrated_second)
         
         data_background_subtracted = calibrated_second - background
-        plt.imshow(calibrated_second, cmap='Blues', origin='lower', vmin=median_s - 2*std_s, vmax=median_s + 5*std_s)
-        data_background_subtracted = -np.min(data_background_subtracted) + data_background_subtracted
+        PRE_MASK = data_background_subtracted
         data_background_subtracted = data_background_subtracted[x1:x2, y1:y2]
-        x4, y4 = centroid_2dg(data_background_subtracted)
+        #plt.imshow(calibrated_second, cmap='Blues', origin='lower', vmin=median_s - 2*std_s, vmax=median_s + 5*std_s)
+        data_background_subtracted = -np.min(data_background_subtracted) + data_background_subtracted
+        
+        #plt.imshow(data_background_subtracted, cmap='Grays', origin='lower') #, vmin=median_s - 2*std_s, vmax=median_s + 5*std_s)
 
-        plt.imshow(data_background_subtracted, cmap='Grays', origin='lower')    
-        plt.show()
+        smoothed = sp.ndimage.gaussian_filter(data_background_subtracted, sigma=2)
+       
+        x4, y4 = centroid_2dg(smoothed)
+        #plt.scatter(x4, y4, color='red', s=10)
+
+        #plt.show()
+
+        #plt.imshow(data_background_subtracted, cmap='Grays', origin='lower')    
+        #plt.show()
         #print(f"Initial coords: {(x4, y4)}")
         #print(f"Box limits: x({x1}, {x2}) y({y1}, {y2})")
         cords_transformed = np.array([(x4 + y1, y4 + x1)])
@@ -205,41 +289,66 @@ for filename in os.listdir(folder_path):
         #cog = RadialProfile(data_background_subtracted, (x4,y4), radii, mask=None)
         growth_rate = np.diff(cog.profile)
         growth_rate = np.diff(growth_rate) # second derivative
-        optimal_radius = radii[np.where(growth_rate < 0)[0][0] + 1]
+        try:  
+            optimal_index  = np.where(growth_rate < 0)[0][0] 
+            optimal_radius = radii[optimal_index -1 ] # +1 because of the double diff 
+        except IndexError as e:
+            print(e)
+            optimal_index = optimal_index # use last used index
+            optimal_radius = radii[optimal_index]
         print("Optimal aperture radius:", optimal_radius)
   
         #threshold = 0.1* np.max(growth_rate)  # e.g., 1% of max growth
         #optimal_index = np.where(growth_rate < threshold)[0][0]
         #optimal_radius = radii[(optimal_index)]
         #print("Optimal aperture radius:", optimal_radius)
-        
-        plt.figure()
-        plt.imshow(data_background_subtracted, cmap='Grays', origin='lower')    
-        plt.colorbar(label="Flux (ADU)")
-        plt.xlabel("X [pixels]")
-        plt.ylabel("Y [pixels]")
+        if(plotting == True):
+            plt.figure()
+            plt.imshow(data_background_subtracted, cmap='Grays', origin='lower')    
+            plt.colorbar(label="Flux (ADU)")
+            plt.xlabel("X [pixels]")
+            plt.ylabel("Y [pixels]")
 
         # overlay aperture circles
+        indexed_apertures = []
+        
         for r in radii:
             aperture = CircularAperture((x4, y4), r=r)
-            aperture.plot(lw=1, alpha=0.5)
+            indexed_apertures.append(aperture)
+            if(plotting == True):
+                aperture.plot(lw=1, alpha=0.5)
+        
+        #aperture = CircularAperture((x4, y4), r=optimal_radius)
+        aperture = indexed_apertures[optimal_index]
+        #aperture.plot(lw=2, color='red', label='Optimal Aperture Radius')
 
-        # optionally, mark the star center
-        plt.scatter(x4, y4, color='red', s=10)
+        ap_radius = optimal_radius
+        ann_inner = optimal_radius + 3
+        ann_width = 3
 
-        plt.show()
+        #aper_t = CircularAperture(cords_transformed[0], r=ap_radius)
+        aper_t = aperture
+        ann_t = CircularAnnulus((x4,y4), r_in=ann_inner, r_out=ann_inner+ann_width)
+        if(plotting == True):
+            ann_t.plot(color='blue')
+
+            plt.legend()
+            # optionally, mark the star center
+            plt.scatter(x4, y4, color='red', s=10)
+
+            plt.show()
 
 
 
-        plt.figure()
-        plt.plot(radii, cog.profile, 'bo-')
-        plt.axvline(optimal_radius, color='r', linestyle='--', label='Optimal Radius')
-        plt.legend()
-        plt.xlabel('Aperture Radius (pixels)')
-        plt.ylabel('Cumulative Flux')
-        plt.title('Curve of Growth')
-        plt.grid()
-        plt.show()
+            plt.figure()
+            plt.plot(radii, cog.profile, 'bo-')
+            plt.axvline(optimal_radius, color='r', linestyle='--', label='Optimal Radius')
+            plt.legend()
+            plt.xlabel('Aperture Radius (pixels)')
+            plt.ylabel('Cumulative Flux')
+            plt.title('Curve of Growth')
+            plt.grid()
+            plt.show()
 
         #first_deriv  = np.gradient(growth_rate, radii)
         #second_deriv = np.gradient(first_deriv, radii)
@@ -345,12 +454,12 @@ for filename in os.listdir(folder_path):
     #plt.close()
     #cords_transformed = DAOStarFinder(fwhm=FWHM, threshold=5.*std, xycoords=cords)
     #cords_transformed = np.array([(3499.825554241658, 39.37473823979557)]) 
-    ap_radius = optimal_radius
-    ann_inner = optimal_radius + 5
-    ann_width = 5
+    #ap_radius = optimal_radius
+    #ann_inner = optimal_radius + 5
+    #ann_width = 5
 
-    aper_t = CircularAperture(cords_transformed[0], r=ap_radius)
-    ann_t = CircularAnnulus(cords_transformed[0], r_in=ann_inner, r_out=ann_inner+ann_width)
+    #aper_t = CircularAperture(cords_transformed[0], r=ap_radius)
+    #ann_t = CircularAnnulus(cords_transformed[0], r_in=ann_inner, r_out=ann_inner+ann_width)
 
 
     
@@ -368,7 +477,7 @@ for filename in os.listdir(folder_path):
     aper.plot(color='green')
     ann.plot(color='cyan')
     plt.figure()
-    """
+    
 
     fig, ax = plt.subplots(figsize = (7,7))
     plt.imshow(calibrated_second, cmap='grey', origin='lower', vmin=median_s-2*std_s, vmax=median_s+5*std_s)
@@ -401,16 +510,18 @@ for filename in os.listdir(folder_path):
     plt.title("Calibrated Image with photometry")
     plt.xlabel("X (pixels)")
     plt.ylabel("Y (pixels)")
-    plt.savefig(fr"images\aperture_masks\{filename}.png")
-    plt.close()
+    #plt.savefig(fr"images\aperture_masks\{filename}.png")
+    plt.show()
+    #plt.close()
 
 
     # --------------------------
     #Extract the light curve here...
-    
+    """
     apertures = [aper_t, ann_t]
-    photom_table = aperture_photometry(calibrated, apertures) # photom_table will contain aperture_sum and annulus_sum for each entry
-    print(photom_table)
+    
+    photom_table = aperture_photometry(data_background_subtracted, apertures) # photom_table will contain aperture_sum and annulus_sum for each entry
+    #print(photom_table)
 
     area =  np.pi * (ann_inner + ann_width)**2 - np.pi * (ann_inner)**2
 
@@ -418,12 +529,14 @@ for filename in os.listdir(folder_path):
     bkg_mean = photom_table['aperture_sum_1'] / area
     bkg_sum = bkg_mean * area
     final_sum = photom_table['aperture_sum_0'] - bkg_sum
+    
     print(final_sum)
 
     saving_constant += 1
     photom_list.append(final_sum)
 
 
+    """
     if (saving_constant % 10 == 0 and saving_constant != 0 and light_curve_extraction == True):
         plt.figure()
         plt.plot(photom_list)
@@ -432,7 +545,9 @@ for filename in os.listdir(folder_path):
         plt.title("Light Curve of Target Star")
         #plt.savefig(r"images\light_curve.png")
         plt.show()
-
+    """
+plt.scatter(date_array, photom_list)
+plt.show() 
 
 
 
