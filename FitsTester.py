@@ -1,9 +1,14 @@
 from astropy.io import fits
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 
-fits_file = r"C:\Users\ahmed\Downloads\Alderamin (Alpha Cephi)_00001.fits"
+
+#fits_file = pd.read_csv("real_data_map.csv")["FITS File Path"].iloc[0]  # Update this path to your FITS file
+fits_file = r"C:\Users\ahmed\Downloads\NGC0891 darks_00015.fits"
 hdul = fits.open(fits_file)
+
+
 
 print("\n=== FITS Header ===")
 print(repr(hdul[0].header)) 
