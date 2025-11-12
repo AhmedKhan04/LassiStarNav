@@ -1,7 +1,7 @@
 # Star Tracker Navigation
 **Photometry & Star Navigation Toolkit**
 
-LassiStarNav is a Python-based toolkit designed to build the applied **star navigation** and photometric light-curve extraction workflows.  
+Star Tracker Navigation is a Python-based toolkit designed to build the applied **star navigation** and photometric light-curve extraction workflows.  
 
 It provides modules for centroid detection, FITS-file analysis, **navigation algorithms**, and photometric testing utilities. This toolkit is especially useful for **spacecraft autonomy**, exoplanet research, and **star tracker applications.**
 
