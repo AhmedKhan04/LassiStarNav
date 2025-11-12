@@ -17,7 +17,7 @@ This project enables:
 - Generating light curves from observational data  
 - Testing routines for photometry and navigation workflows  
 
-If you’re working on **satellite navigation, star trackers, or light curve analysis, LassiStarNav offers a modular foundation.**
+If you’re working on **satellite navigation, star trackers, or light curve analysis, Star Tracker Navigation offers a modular foundation.**
 
 
 > **Note:**  
