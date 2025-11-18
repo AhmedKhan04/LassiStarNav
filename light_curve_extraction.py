@@ -85,7 +85,7 @@ light_curve_extraction = False
 plotting = False
 date_array = []
 
-for filename in pd.read_csv("real_data_map_Tau Cygni.csv")["FITS File Path"]:
+for filename in pd.read_csv("real_data_map_IM Tauri 2025-11-15.csv")["FITS File Path"]:
     #print(filename)
     file_path = filename #os.path.join(folder_path, filename)
     
@@ -99,15 +99,15 @@ for filename in pd.read_csv("real_data_map_Tau Cygni.csv")["FITS File Path"]:
     # OVERRIDE FOR TESTING
 
     hdul = fits.open(file_path)
-    print("\n=== FITS Header ===")
-    print(repr(hdul[0].header)) 
+    #print("\n=== FITS Header ===")
+    #print(repr(hdul[0].header)) 
     #sci_data_second = hdul[0].data.astype(float)
 
     date_obs = hdul[0].header.get('DATE-AVG')
     date_obs.split('/')[0].strip()
     
     date_obs_clean = date_obs.split("'/")[0].strip()  
-    print(date_obs)
+    #print(date_obs)
     if '.' in date_obs_clean:
         date_part, frac = date_obs_clean.split('.')
         frac = frac[:6]  # keep only first 6 digits
@@ -121,8 +121,8 @@ for filename in pd.read_csv("real_data_map_Tau Cygni.csv")["FITS File Path"]:
     #rint(f"UTC time (fractional hours): {utc_float}")  
 
     
-    print(date_obs_clean)
-    print('--------------')
+    #print(date_obs_clean)
+    #print('--------------')
     t_utc = Time(date_obs_clean, format='isot', scale='utc')
     print(t_utc)
     # Define Kepler mission epoch (BJD 2454833.0)
@@ -533,7 +533,7 @@ for filename in pd.read_csv("real_data_map_Tau Cygni.csv")["FITS File Path"]:
     print(final_sum)
 
     saving_constant += 1
-    photom_list.append(final_sum)
+    photom_list.append(final_sum.value[0])
 
 
     """
@@ -546,7 +546,17 @@ for filename in pd.read_csv("real_data_map_Tau Cygni.csv")["FITS File Path"]:
         #plt.savefig(r"images\light_curve.png")
         plt.show()
     """
+
+
 plt.scatter(date_array, photom_list)
+
+df = pd.DataFrame({
+    'Time': date_array, 'Flux': photom_list
+
+})
+
+df.to_csv(fr"Outputs/IM Tauri.csv")
+
 plt.show() 
 
 
